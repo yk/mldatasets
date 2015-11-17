@@ -1,0 +1,378 @@
+import random
+import zipfile
+import bz2
+import requests
+import os
+import numpy as np
+
+
+def download_file(url: str) -> str:
+    resp = requests.get(url)
+    return resp.text
+
+
+def download_binary_file(url: str):
+    resp = requests.get(url)
+    return resp.content
+
+
+def save_file(content: str, name: str):
+    if not os.path.exists(os.path.dirname(name)):
+        os.makedirs(os.path.dirname(name))
+    with open(name, "w") as file:
+        file.write(content)
+
+
+def save_binary_file(content: bytes, name: str):
+    if not os.path.exists(os.path.dirname(name)):
+        os.makedirs(os.path.dirname(name))
+    with open(name, "wb") as file:
+        file.write(content)
+
+
+def read_sparse_vector(tokens, dimensions):
+    vec = np.zeros(dimensions)
+    for token in tokens:
+        parts = token.split(":")
+        position = int(parts[0]) - 1
+        value = float(parts[1])
+        vec[position] = value
+    return vec
+
+
+class Dataset:
+    base_dir = "../../../tmp/pydata"
+
+    def get_name(self):
+        return self.__class__.__name__
+
+    def get_task(self):
+        pass
+
+    def is_available(self) -> bool:
+        pass
+
+    def make_available(self):
+        pass
+
+    def convert(self) -> (np.ndarray, np.ndarray):
+        pass
+
+    def get_data(self) -> (np.ndarray, np.ndarray):
+        if not self.is_available():
+            self.make_available()
+        return self.convert()
+
+    def __str__(self):
+        return self.get_name()
+
+
+class DataProvider:
+    def __init__(self, data: np.ndarray, labels: np.ndarray):
+        self.data, self.labels = data, labels
+        self.size = self.data.shape[0]
+        self.dimensions = self.data.shape[1]
+
+    def get_sample(self, sample_size: int=50) -> (np.ndarray, np.ndarray):
+        d, l, i = self.get_sample_with_inds(sample_size)
+        return d, l
+
+    def get_sample_with_inds(self, sample_size: int=50) -> (np.ndarray, np.ndarray, list):
+        data_inds = range(self.size)
+        sample_inds = random.sample(data_inds, sample_size)
+        return self.data[sample_inds, :], self.labels[sample_inds], sample_inds
+
+    def zero_point(self):
+        return np.zeros_like(self.data[0])
+
+
+class ClassificationDataset(Dataset):
+    def get_task(self):
+        return "classification"
+
+
+class RegressionDataset(Dataset):
+    def get_task(self):
+        return "regression"
+
+
+class RosenbrockBanana(Dataset):
+    def __init__(self, dimensions: int=200, size: int=1000):
+        super().__init__()
+        self.size = size
+        self.dimensions = dimensions
+
+    def is_available(self):
+        return True
+
+    def get_task(self):
+        return "rosenbrock"
+
+    def convert(self):
+        return np.array([[1.0] * self.dimensions] * self.size), np.array([0.0] * self.size)
+
+
+class QuadraticDataset(Dataset):
+    def __init__(self, diag: np.ndarray, size: int=1000):
+        super().__init__()
+        self.size = size
+        self.diag = diag
+        self.dimensions = len(diag)
+
+    def is_available(self):
+        return True
+
+    def get_task(self):
+        return "quadratic"
+
+    def convert(self):
+        return np.array([self.diag]*self.size), np.array([0.0]*self.size)
+
+
+class SingleFileOnlineDataset(Dataset):
+    def __init__(self, url: str, filename: str, dimensions: int):
+        self.url = url
+        self.filename = filename
+        self.dimensions = dimensions
+
+    def is_available(self) -> bool:
+        return os.path.isfile(self.filename)
+
+    def make_available(self):
+        save_file(download_file(self.url), self.filename)
+
+    def convert_line(self, line: str) -> (np.ndarray, float):
+        pass
+
+    def convert(self):
+        vectors = []
+        classes = []
+        with open(self.filename) as file:
+            for line in file:
+                if line.isspace():
+                    continue
+                vec, cls = self.convert_line(line.strip())
+                vectors.append(vec)
+                classes.append(cls)
+        return np.array(vectors), np.array(classes)
+
+
+class MultipleFilesOnlineDataset(Dataset):
+    def __init__(self, urls: list, filenames: list, dimensions: int):
+        self.urls = urls
+        self.filenames = filenames
+        self.dimensions = dimensions
+
+    def is_available(self) -> bool:
+        for fn in self.filenames:
+            if not os.path.isfile(fn):
+                return False
+        return True
+
+    def make_available(self):
+        for url, fn in zip(self.urls, self.filenames):
+            save_file(download_file(url), fn)
+
+    def convert_lines(self, lines: list) -> (np.ndarray, float):
+        pass
+
+    def convert(self):
+        files = []
+        for fn in self.filenames:
+            with open(fn) as file:
+                lines = [l.strip() for l in file.readlines()]
+                files.append(lines)
+        vectors = []
+        classes = []
+        for lines in zip(*files):
+            vec, cls = self.convert_lines(lines)
+            vectors.append(vec)
+            classes.append(cls)
+        return np.array(vectors), np.array(classes)
+
+
+class UCIMLAdult(SingleFileOnlineDataset, ClassificationDataset):
+    def __init__(self, name: str, dimensions: int):
+        self.name = name
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/{}".format(self.name),
+                         filename="{}/uciml/{}".format(Dataset.base_dir, self.name), dimensions=dimensions)
+
+    def get_label(self, labelstr: str) -> float:
+        pass
+
+    def convert_line(self, line: str) -> (np.ndarray, float):
+        tokens = line.split()
+        cls = self.get_label(tokens[0])
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
+
+
+class Mushrooms(UCIMLAdult):
+    def __init__(self):
+        super().__init__("mushrooms", 112)
+
+    def get_label(self, labelstr: str) -> float:
+        return float(labelstr) - 1.0
+
+
+class A9A(UCIMLAdult):
+    def __init__(self):
+        super().__init__("a9a", 123)
+
+    def get_label(self, labelstr: str) -> float:
+        return float((int(labelstr) + 1) / 2)
+
+
+class Gisette(MultipleFilesOnlineDataset, ClassificationDataset):
+    def __init__(self, size=6000, dimensions=5000):
+        super().__init__(
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.labels"],
+            filenames=["{}/gisette.data".format(Dataset.base_dir), "{}/gisette.labels".format(Dataset.base_dir)],
+            dimensions=dimensions)
+        self.size = size
+
+    def convert_lines(self, lines: list):
+        vec = np.array([float(t) for t in lines[0].split()[:self.dimensions]])
+        cls = float((int(lines[1]) + 1) / 2)
+        return vec, cls
+
+
+class Dexter(MultipleFilesOnlineDataset, ClassificationDataset):
+    def __init__(self, size=2600, dimensions=20000):
+        super().__init__(
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.labels"],
+            filenames=["{}/dexter.data".format(Dataset.base_dir), "{}/dexter.labels".format(Dataset.base_dir)],
+            dimensions=dimensions)
+        self.size = size
+
+    def convert_lines(self, lines: list):
+        vec = read_sparse_vector(lines[0].split(), 20000)[:self.dimensions]
+        cls = float((int(lines[1]) + 1) / 2)
+        return vec, cls
+
+
+class Arcene(MultipleFilesOnlineDataset, ClassificationDataset):
+    def __init__(self, size=900, dimensions=10000):
+        super().__init__(
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.labels"],
+            filenames=["{}/arcene.data".format(Dataset.base_dir), "{}/arcene.labels".format(Dataset.base_dir)],
+            dimensions=dimensions)
+        self.size = size
+
+    def convert_lines(self, lines: list):
+        vec = np.array([float(t) for t in lines[0].split()[:self.dimensions]])
+        cls = float((int(lines[1]) + 1) / 2)
+        return vec, cls
+
+
+class BZ2Dataset(SingleFileOnlineDataset):
+    def make_available(self):
+        bz2filename = "{}.bz2".format(self.filename)
+        if not os.path.isfile(bz2filename):
+            save_binary_file(download_binary_file(self.url), bz2filename)
+        with bz2.open(bz2filename, 'r') as f:
+            data = f.read().decode("ascii")
+            save_file(data, self.filename)
+
+
+class Ijcnn1(BZ2Dataset, ClassificationDataset):
+    def __init__(self):
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/ijcnn1.bz2",
+                         filename="{}/ijcnn1".format(Dataset.base_dir), dimensions=22)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = float((int(tokens[0]) + 1) / 2)
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
+
+
+class Covtype(BZ2Dataset, ClassificationDataset):
+    def __init__(self):
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/covtype.libsvm.binary.bz2",
+                         filename="{}/covtype".format(Dataset.base_dir), dimensions=54)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = float((int(tokens[0]) - 1))
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
+
+
+class MNIST(BZ2Dataset, ClassificationDataset):
+    def __init__(self):
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2",
+                         filename="{}/mnist".format(Dataset.base_dir), dimensions=780)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = 0.0 if int(tokens[0]) <= 4 else 1.0
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
+
+
+class YearPredictionMSD(BZ2Dataset, RegressionDataset):
+    def __init__(self):
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/YearPredictionMSD.bz2",
+                         filename="{}/yearprediction".format(Dataset.base_dir), dimensions=90)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = float(int(tokens[0]))
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
+
+
+class ZipDataset(SingleFileOnlineDataset):
+    def __init__(self, url: str, filename: str, dimensions: int, filename_in_zip: str):
+        super().__init__(url, filename, dimensions)
+        self.filename_in_zip = filename_in_zip
+
+    def make_available(self):
+        zipfilename = "{}.zip".format(self.filename)
+        if not os.path.isfile(zipfilename):
+            save_binary_file(download_binary_file(self.url), zipfilename)
+        with zipfile.ZipFile(zipfilename) as zfile:
+            with zfile.open(self.filename_in_zip, 'r') as f:
+                data = f.read().decode("ascii")
+                save_file(data, self.filename)
+
+
+class BlogFeedback(ZipDataset, RegressionDataset):
+    def __init__(self):
+        super().__init__(url="https://archive.ics.uci.edu/ml/machine-learning-databases/00304/BlogFeedback.zip",
+                         filename="{}/blogfeedback".format(Dataset.base_dir), dimensions=280,
+                         filename_in_zip="blogData_train.csv")
+
+    def convert_line(self, line: str):
+        tokens = line.split(r",")
+        cls = float(tokens[-1])
+        vec = np.array([float(t) for t in tokens[:-1]])
+        return vec, cls
+
+
+class StanfordSpam(SingleFileOnlineDataset, ClassificationDataset):
+    def __init__(self):
+        super().__init__(url="http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/spam.data",
+                         filename="{}/spam".format(Dataset.base_dir), dimensions=67)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = 1.0 if tokens[-1] == "1" else 0.0
+        vec = np.array([float(t) for t in tokens[:-1]])
+        return vec, cls
+
+
+class CpuSmall(SingleFileOnlineDataset, RegressionDataset):
+    def __init__(self):
+        super().__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/cpusmall_scale",
+                         filename="{}/cpusmall".format(Dataset.base_dir), dimensions=12)
+
+    def convert_line(self, line: str):
+        tokens = line.split()
+        cls = float(int(tokens[0]))
+        vec = read_sparse_vector(tokens[1:], self.dimensions)
+        return vec, cls
