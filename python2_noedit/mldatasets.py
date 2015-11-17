@@ -7,6 +7,7 @@ import bz2
 import requests
 import os
 import numpy as np
+import sklearn
 from io import open
 from itertools import izip
 
@@ -46,7 +47,7 @@ def read_sparse_vector(tokens, dimensions):
 
 
 class Dataset(object):
-    base_dir = u"../../../tmp/pydata"
+    base_dir = os.path.expanduser(u"~/tmp/pydata")
 
     def get_name(self):
         return self.__class__.__name__
@@ -381,3 +382,12 @@ class CpuSmall(SingleFileOnlineDataset, RegressionDataset):
         cls = float(int(tokens[0]))
         vec = read_sparse_vector(tokens[1:], self.dimensions)
         return vec, cls
+
+
+class Diabetes(RegressionDataset):
+    def is_available(self):
+        return True
+
+    def convert(self):
+        bunch = sklearn.datasets.load_diabetes()
+        return bunch[u"data"], bunch[u"target"]
