@@ -48,6 +48,7 @@ def read_sparse_vector(tokens, dimensions):
 
 class Dataset(object):
     base_dir = os.path.expanduser(u"~/tmp/pydata")
+    cache_dir = u"{}/cache".format(base_dir)
 
     def get_name(self):
         return self.__class__.__name__
@@ -64,10 +65,28 @@ class Dataset(object):
     def convert(self):
         pass
 
-    def get_data(self):
-        if not self.is_available():
-            self.make_available()
-        return self.convert()
+    def cache_file_name(self, postfix=u""):
+        return u"{}/{}.{}.npy".format(Dataset.cache_dir, self.get_name(), postfix)
+
+    def cache_write(self, data, labels):
+        np.save(self.cache_file_name(u"data"), data)
+        np.save(self.cache_file_name(u"labels"), labels)
+
+    def cache_read(self):
+        return np.load(self.cache_file_name(u"data")), np.load(self.cache_file_name(u"labels"))
+
+    def cache_available(self):
+        return os.path.exists(self.cache_file_name(u"data")) and os.path.exists(self.cache_file_name(u"labels"))
+
+    def get_data(self, force_write_cache=False):
+        if force_write_cache or not self.cache_available():
+            if not self.is_available():
+                self.make_available()
+            data, labels = self.convert()
+            self.cache_write(data, labels)
+            return data, labels
+        else:
+            return self.cache_read()
 
     def __str__(self):
         return self.get_name()
@@ -391,3 +410,8 @@ class Diabetes(RegressionDataset):
     def convert(self):
         bunch = sklearn.datasets.load_diabetes()
         return bunch[u"data"], bunch[u"target"]
+
+
+#make dirs
+if not os.path.exists(Dataset.cache_dir):
+    os.makedirs(Dataset.cache_dir, mode=0775, exist_ok=True)
