@@ -25,21 +25,21 @@ def download_binary_file(url):
 def save_file(content, name):
     if not os.path.exists(os.path.dirname(name)):
         os.makedirs(os.path.dirname(name))
-    with open(name, u"w") as file:
+    with open(name, "w") as file:
         file.write(content)
 
 
 def save_binary_file(content, name):
     if not os.path.exists(os.path.dirname(name)):
         os.makedirs(os.path.dirname(name))
-    with open(name, u"wb") as file:
+    with open(name, "wb") as file:
         file.write(content)
 
 
 def read_sparse_vector(tokens, dimensions):
     vec = np.zeros(dimensions)
     for token in tokens:
-        parts = token.split(u":")
+        parts = token.split(":")
         position = int(parts[0]) - 1
         value = float(parts[1])
         vec[position] = value
@@ -47,8 +47,8 @@ def read_sparse_vector(tokens, dimensions):
 
 
 class Dataset(object):
-    base_dir = os.path.expanduser(u"~/tmp/pydata")
-    cache_dir = u"{}/cache".format(base_dir)
+    base_dir = os.path.expanduser("~/tmp/pydata")
+    cache_dir = "{}/cache".format(base_dir)
 
     def get_name(self):
         return self.__class__.__name__
@@ -65,18 +65,18 @@ class Dataset(object):
     def convert(self):
         pass
 
-    def cache_file_name(self, postfix=u""):
-        return u"{}/{}.{}.npy".format(Dataset.cache_dir, self.get_name(), postfix)
+    def cache_file_name(self, postfix=""):
+        return "{}/{}.{}.npy".format(Dataset.cache_dir, self.get_name(), postfix)
 
     def cache_write(self, data, labels):
-        np.save(self.cache_file_name(u"data"), data)
-        np.save(self.cache_file_name(u"labels"), labels)
+        np.save(self.cache_file_name("data"), data)
+        np.save(self.cache_file_name("labels"), labels)
 
     def cache_read(self):
-        return np.load(self.cache_file_name(u"data")), np.load(self.cache_file_name(u"labels"))
+        return np.load(self.cache_file_name("data")), np.load(self.cache_file_name("labels"))
 
     def cache_available(self):
-        return os.path.exists(self.cache_file_name(u"data")) and os.path.exists(self.cache_file_name(u"labels"))
+        return os.path.exists(self.cache_file_name("data")) and os.path.exists(self.cache_file_name("labels"))
 
     def get_data(self, force_write_cache=False):
         if force_write_cache or not self.cache_available():
@@ -113,12 +113,12 @@ class DataProvider(object):
 
 class ClassificationDataset(Dataset):
     def get_task(self):
-        return u"classification"
+        return "classification"
 
 
 class RegressionDataset(Dataset):
     def get_task(self):
-        return u"regression"
+        return "regression"
 
 
 class RosenbrockBanana(Dataset):
@@ -131,7 +131,7 @@ class RosenbrockBanana(Dataset):
         return True
 
     def get_task(self):
-        return u"rosenbrock"
+        return "rosenbrock"
 
     def convert(self):
         return np.array([[1.0] * self.dimensions] * self.size), np.array([0.0] * self.size)
@@ -148,7 +148,7 @@ class QuadraticDataset(Dataset):
         return True
 
     def get_task(self):
-        return u"quadratic"
+        return "quadratic"
 
     def convert(self):
         return np.array([self.diag]*self.size), np.array([0.0]*self.size)
@@ -219,8 +219,8 @@ class MultipleFilesOnlineDataset(Dataset):
 class UCIMLAdult(SingleFileOnlineDataset, ClassificationDataset):
     def __init__(self, name, dimensions):
         self.name = name
-        super(UCIMLAdult, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/{}".format(self.name),
-                         filename=u"{}/uciml/{}".format(Dataset.base_dir, self.name), dimensions=dimensions)
+        super(UCIMLAdult, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/{}".format(self.name),
+                         filename="{}/uciml/{}".format(Dataset.base_dir, self.name), dimensions=dimensions)
 
     def get_label(self, labelstr):
         pass
@@ -234,7 +234,7 @@ class UCIMLAdult(SingleFileOnlineDataset, ClassificationDataset):
 
 class Mushrooms(UCIMLAdult):
     def __init__(self):
-        super(Mushrooms, self).__init__(u"mushrooms", 112)
+        super(Mushrooms, self).__init__("mushrooms", 112)
 
     def get_label(self, labelstr):
         return float(labelstr) - 1.0
@@ -242,7 +242,7 @@ class Mushrooms(UCIMLAdult):
 
 class A9A(UCIMLAdult):
     def __init__(self):
-        super(A9A, self).__init__(u"a9a", 123)
+        super(A9A, self).__init__("a9a", 123)
 
     def get_label(self, labelstr):
         return float((int(labelstr) + 1) / 2)
@@ -251,9 +251,9 @@ class A9A(UCIMLAdult):
 class Gisette(MultipleFilesOnlineDataset, ClassificationDataset):
     def __init__(self, size=6000, dimensions=5000):
         super(Gisette, self).__init__(
-            urls=[u"http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.data",
-                  u"http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.labels"],
-            filenames=[u"{}/gisette.data".format(Dataset.base_dir), u"{}/gisette.labels".format(Dataset.base_dir)],
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/gisette/GISETTE/gisette_train.labels"],
+            filenames=["{}/gisette.data".format(Dataset.base_dir), "{}/gisette.labels".format(Dataset.base_dir)],
             dimensions=dimensions)
         self.size = size
 
@@ -266,9 +266,9 @@ class Gisette(MultipleFilesOnlineDataset, ClassificationDataset):
 class Dexter(MultipleFilesOnlineDataset, ClassificationDataset):
     def __init__(self, size=2600, dimensions=20000):
         super(Dexter, self).__init__(
-            urls=[u"http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.data",
-                  u"http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.labels"],
-            filenames=[u"{}/dexter.data".format(Dataset.base_dir), u"{}/dexter.labels".format(Dataset.base_dir)],
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/dexter/DEXTER/dexter_train.labels"],
+            filenames=["{}/dexter.data".format(Dataset.base_dir), "{}/dexter.labels".format(Dataset.base_dir)],
             dimensions=dimensions)
         self.size = size
 
@@ -281,9 +281,9 @@ class Dexter(MultipleFilesOnlineDataset, ClassificationDataset):
 class Arcene(MultipleFilesOnlineDataset, ClassificationDataset):
     def __init__(self, size=900, dimensions=10000):
         super(Arcene, self).__init__(
-            urls=[u"http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.data",
-                  u"http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.labels"],
-            filenames=[u"{}/arcene.data".format(Dataset.base_dir), u"{}/arcene.labels".format(Dataset.base_dir)],
+            urls=["http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.data",
+                  "http://archive.ics.uci.edu/ml/machine-learning-databases/arcene/ARCENE/arcene_train.labels"],
+            filenames=["{}/arcene.data".format(Dataset.base_dir), "{}/arcene.labels".format(Dataset.base_dir)],
             dimensions=dimensions)
         self.size = size
 
@@ -295,18 +295,18 @@ class Arcene(MultipleFilesOnlineDataset, ClassificationDataset):
 
 class BZ2Dataset(SingleFileOnlineDataset):
     def make_available(self):
-        bz2filename = u"{}.bz2".format(self.filename)
+        bz2filename = "{}.bz2".format(self.filename)
         if not os.path.isfile(bz2filename):
             save_binary_file(download_binary_file(self.url), bz2filename)
-        with bz2.open(bz2filename, u'r') as f:
-            data = f.read().decode(u"ascii")
+        with bz2.open(bz2filename, 'r') as f:
+            data = f.read().decode("ascii")
             save_file(data, self.filename)
 
 
 class Ijcnn1(BZ2Dataset, ClassificationDataset):
     def __init__(self):
-        super(Ijcnn1, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/ijcnn1.bz2",
-                         filename=u"{}/ijcnn1".format(Dataset.base_dir), dimensions=22)
+        super(Ijcnn1, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/ijcnn1.bz2",
+                         filename="{}/ijcnn1".format(Dataset.base_dir), dimensions=22)
 
     def convert_line(self, line):
         tokens = line.split()
@@ -317,8 +317,8 @@ class Ijcnn1(BZ2Dataset, ClassificationDataset):
 
 class Covtype(BZ2Dataset, ClassificationDataset):
     def __init__(self):
-        super(Covtype, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/covtype.libsvm.binary.bz2",
-                         filename=u"{}/covtype".format(Dataset.base_dir), dimensions=54)
+        super(Covtype, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/covtype.libsvm.binary.bz2",
+                         filename="{}/covtype".format(Dataset.base_dir), dimensions=54)
 
     def convert_line(self, line):
         tokens = line.split()
@@ -329,8 +329,8 @@ class Covtype(BZ2Dataset, ClassificationDataset):
 
 class MNIST(BZ2Dataset, ClassificationDataset):
     def __init__(self):
-        super(MNIST, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2",
-                         filename=u"{}/mnist".format(Dataset.base_dir), dimensions=780)
+        super(MNIST, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass/mnist.bz2",
+                         filename="{}/mnist".format(Dataset.base_dir), dimensions=780)
 
     def convert_line(self, line):
         tokens = line.split()
@@ -341,8 +341,8 @@ class MNIST(BZ2Dataset, ClassificationDataset):
 
 class YearPredictionMSD(BZ2Dataset, RegressionDataset):
     def __init__(self):
-        super(YearPredictionMSD, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/YearPredictionMSD.bz2",
-                         filename=u"{}/yearprediction".format(Dataset.base_dir), dimensions=90)
+        super(YearPredictionMSD, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/YearPredictionMSD.bz2",
+                         filename="{}/yearprediction".format(Dataset.base_dir), dimensions=90)
 
     def convert_line(self, line):
         tokens = line.split()
@@ -357,23 +357,23 @@ class ZipDataset(SingleFileOnlineDataset):
         self.filename_in_zip = filename_in_zip
 
     def make_available(self):
-        zipfilename = u"{}.zip".format(self.filename)
+        zipfilename = "{}.zip".format(self.filename)
         if not os.path.isfile(zipfilename):
             save_binary_file(download_binary_file(self.url), zipfilename)
         with zipfile.ZipFile(zipfilename) as zfile:
-            with zfile.open(self.filename_in_zip, u'r') as f:
-                data = f.read().decode(u"ascii")
+            with zfile.open(self.filename_in_zip, 'r') as f:
+                data = f.read().decode("ascii")
                 save_file(data, self.filename)
 
 
 class BlogFeedback(ZipDataset, RegressionDataset):
     def __init__(self):
-        super(BlogFeedback, self).__init__(url=u"https://archive.ics.uci.edu/ml/machine-learning-databases/00304/BlogFeedback.zip",
-                         filename=u"{}/blogfeedback".format(Dataset.base_dir), dimensions=280,
-                         filename_in_zip=u"blogData_train.csv")
+        super(BlogFeedback, self).__init__(url="https://archive.ics.uci.edu/ml/machine-learning-databases/00304/BlogFeedback.zip",
+                         filename="{}/blogfeedback".format(Dataset.base_dir), dimensions=280,
+                         filename_in_zip="blogData_train.csv")
 
     def convert_line(self, line):
-        tokens = line.split(ur",")
+        tokens = line.split(r",")
         cls = float(tokens[-1])
         vec = np.array([float(t) for t in tokens[:-1]])
         return vec, cls
@@ -381,20 +381,20 @@ class BlogFeedback(ZipDataset, RegressionDataset):
 
 class StanfordSpam(SingleFileOnlineDataset, ClassificationDataset):
     def __init__(self):
-        super(StanfordSpam, self).__init__(url=u"http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/spam.data",
-                         filename=u"{}/spam".format(Dataset.base_dir), dimensions=67)
+        super(StanfordSpam, self).__init__(url="http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/spam.data",
+                         filename="{}/spam".format(Dataset.base_dir), dimensions=67)
 
     def convert_line(self, line):
         tokens = line.split()
-        cls = 1.0 if tokens[-1] == u"1" else 0.0
+        cls = 1.0 if tokens[-1] == "1" else 0.0
         vec = np.array([float(t) for t in tokens[:-1]])
         return vec, cls
 
 
 class CpuSmall(SingleFileOnlineDataset, RegressionDataset):
     def __init__(self):
-        super(CpuSmall, self).__init__(url=u"http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/cpusmall_scale",
-                         filename=u"{}/cpusmall".format(Dataset.base_dir), dimensions=12)
+        super(CpuSmall, self).__init__(url="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/cpusmall_scale",
+                         filename="{}/cpusmall".format(Dataset.base_dir), dimensions=12)
 
     def convert_line(self, line):
         tokens = line.split()
@@ -409,7 +409,7 @@ class Diabetes(RegressionDataset):
 
     def convert(self):
         bunch = sklearn.datasets.load_diabetes()
-        return bunch[u"data"], bunch[u"target"]
+        return bunch["data"], bunch["target"]
 
 
 #make dirs
