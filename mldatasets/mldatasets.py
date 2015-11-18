@@ -4,7 +4,7 @@ import bz2
 import requests
 import os
 import numpy as np
-import sklearn
+import sklearn.datasets
 
 
 def download_file(url: str) -> str:

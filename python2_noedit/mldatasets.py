@@ -7,7 +7,7 @@ import bz2
 import requests
 import os
 import numpy as np
-import sklearn
+import sklearn.datasets
 from io import open
 from itertools import izip
 
