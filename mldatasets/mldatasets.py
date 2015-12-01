@@ -87,6 +87,14 @@ class Dataset:
         return self.get_name()
 
 
+class NoCacheDataset(Dataset):
+    def cache_available(self):
+        return False
+
+    def cache_write(self, data: np.ndarray, labels: np.ndarray):
+        pass
+
+
 class DataProvider:
     def __init__(self, data: np.ndarray, labels: np.ndarray):
         self.data, self.labels = data, labels
@@ -407,6 +415,30 @@ class Diabetes(RegressionDataset):
         return bunch["data"], bunch["target"]
 
 
+class GaussianNoiseRegressionGenerated(NoCacheDataset, RegressionDataset):
+    def __init__(self, w: np.ndarray, sigma: float, size: int):
+        self.w = np.asarray(w)
+        self.sigma = sigma
+        self.size = size
+
+    def is_available(self):
+        return True
+
+    def convert(self):
+        d = self.w.shape[0]
+        x = np.random.random((self.size, d))
+        xw = np.dot(x, self.w)
+        y = xw + np.random.randn(self.size)*self.sigma
+        return x, y
+
+
+
+
 #make dirs
 if not os.path.exists(Dataset.cache_dir):
     os.makedirs(Dataset.cache_dir, mode=0o775, exist_ok=True)
+
+
+if __name__ == '__main__':
+    d1 = GaussianNoiseRegressionGenerated([1., 2.], 1., 5)
+    print(d1.get_data())
