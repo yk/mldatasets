@@ -5,6 +5,7 @@ import requests
 import os
 import numpy as np
 import sklearn.datasets
+from sklearn import preprocessing
 
 
 def download_file(url: str) -> str:
@@ -60,7 +61,7 @@ class Dataset:
     def convert(self) -> (np.ndarray, np.ndarray):
         pass
 
-    def cache_file_name(self, postfix: str="") -> str:
+    def cache_file_name(self, postfix: str = "") -> str:
         return "{}/{}.{}.npy".format(Dataset.cache_dir, self.get_name(), postfix)
 
     def cache_write(self, data: np.ndarray, labels: np.ndarray):
@@ -101,17 +102,40 @@ class DataProvider:
         self.size = self.data.shape[0]
         self.dimensions = self.data.shape[1]
 
-    def get_sample(self, sample_size: int=50) -> (np.ndarray, np.ndarray):
+    def get_sample(self, sample_size: int = 50) -> (np.ndarray, np.ndarray):
         d, l, i = self.get_sample_with_inds(sample_size)
         return d, l
 
-    def get_sample_with_inds(self, sample_size: int=50) -> (np.ndarray, np.ndarray, list):
+    def get_sample_with_inds(self, sample_size: int = 50) -> (np.ndarray, np.ndarray, list):
         data_inds = range(self.size)
         sample_inds = random.sample(data_inds, sample_size)
         return self.data[sample_inds, :], self.labels[sample_inds], sample_inds
 
     def zero_point(self):
         return np.zeros_like(self.data[0])
+
+
+def create_data_provider(dataset: Dataset, force_write_cache: bool = False, center_data: bool = True,
+                         scale_data: bool = True, add_bias_feature: bool = True, normalize_datapoints: bool = True,
+                         center_labels: bool = False, scale_labels: bool = False,
+                         transform_labels_to_plus_minus_one: bool = True):
+    data, labels = dataset.get_data(force_write_cache=force_write_cache)
+    copy=False
+    if scale_data:
+        preprocessing.scale(data, copy=copy)
+    elif center_data:
+        data = preprocessing.scale(data, with_std=False, copy=copy)
+    if scale_labels:
+        labels = preprocessing.scale(labels, copy=copy)
+    elif center_labels:
+        labels = preprocessing.scale(labels, with_std=False, copy=copy)
+    if add_bias_feature:
+        data = np.hstack((data, np.ones((data.shape[0], 1))))
+    if normalize_datapoints:
+        data /= np.linalg.norm(data, axis=1)[:, np.newaxis]
+    if transform_labels_to_plus_minus_one:
+        labels = labels * 2.0 - 1.0
+    return DataProvider(data, labels)
 
 
 class ClassificationDataset(Dataset):
@@ -125,7 +149,7 @@ class RegressionDataset(Dataset):
 
 
 class RosenbrockBanana(Dataset):
-    def __init__(self, dimensions: int=200, size: int=1000):
+    def __init__(self, dimensions: int = 200, size: int = 1000):
         super().__init__()
         self.size = size
         self.dimensions = dimensions
@@ -141,7 +165,7 @@ class RosenbrockBanana(Dataset):
 
 
 class QuadraticDataset(Dataset):
-    def __init__(self, diag: np.ndarray, size: int=1000):
+    def __init__(self, diag: np.ndarray, size: int = 1000):
         super().__init__()
         self.size = size
         self.diag = diag
@@ -154,7 +178,7 @@ class QuadraticDataset(Dataset):
         return "quadratic"
 
     def convert(self):
-        return np.array([self.diag]*self.size), np.array([0.0]*self.size)
+        return np.array([self.diag] * self.size), np.array([0.0] * self.size)
 
 
 class SingleFileOnlineDataset(Dataset):
@@ -428,16 +452,13 @@ class GaussianNoiseRegressionGenerated(NoCacheDataset, RegressionDataset):
         d = self.w.shape[0]
         x = np.random.random((self.size, d))
         xw = np.dot(x, self.w)
-        y = xw + np.random.randn(self.size)*self.sigma
+        y = xw + np.random.randn(self.size) * self.sigma
         return x, y
 
 
-
-
-#make dirs
+# make dirs
 if not os.path.exists(Dataset.cache_dir):
     os.makedirs(Dataset.cache_dir, mode=0o775, exist_ok=True)
-
 
 if __name__ == '__main__':
     d1 = GaussianNoiseRegressionGenerated([1., 2.], 1., 5)

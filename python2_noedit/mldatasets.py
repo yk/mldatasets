@@ -8,6 +8,7 @@ import requests
 import os
 import numpy as np
 import sklearn.datasets
+from sklearn import preprocessing
 from io import open
 from itertools import izip
 
@@ -65,7 +66,7 @@ class Dataset(object):
     def convert(self):
         pass
 
-    def cache_file_name(self, postfix=""):
+    def cache_file_name(self, postfix = ""):
         return "{}/{}.{}.npy".format(Dataset.cache_dir, self.get_name(), postfix)
 
     def cache_write(self, data, labels):
@@ -106,17 +107,40 @@ class DataProvider(object):
         self.size = self.data.shape[0]
         self.dimensions = self.data.shape[1]
 
-    def get_sample(self, sample_size=50):
+    def get_sample(self, sample_size = 50):
         d, l, i = self.get_sample_with_inds(sample_size)
         return d, l
 
-    def get_sample_with_inds(self, sample_size=50):
+    def get_sample_with_inds(self, sample_size = 50):
         data_inds = xrange(self.size)
         sample_inds = random.sample(data_inds, sample_size)
         return self.data[sample_inds, :], self.labels[sample_inds], sample_inds
 
     def zero_point(self):
         return np.zeros_like(self.data[0])
+
+
+def create_data_provider(dataset, force_write_cache = False, center_data = True,
+                         scale_data = True, add_bias_feature = True, normalize_datapoints = True,
+                         center_labels = False, scale_labels = False,
+                         transform_labels_to_plus_minus_one = True):
+    data, labels = dataset.get_data(force_write_cache=force_write_cache)
+    copy=False
+    if scale_data:
+        preprocessing.scale(data, copy=copy)
+    elif center_data:
+        data = preprocessing.scale(data, with_std=False, copy=copy)
+    if scale_labels:
+        labels = preprocessing.scale(labels, copy=copy)
+    elif center_labels:
+        labels = preprocessing.scale(labels, with_std=False, copy=copy)
+    if add_bias_feature:
+        data = np.hstack((data, np.ones((data.shape[0], 1))))
+    if normalize_datapoints:
+        data /= np.linalg.norm(data, axis=1)[:, np.newaxis]
+    if transform_labels_to_plus_minus_one:
+        labels = labels * 2.0 - 1.0
+    return DataProvider(data, labels)
 
 
 class ClassificationDataset(Dataset):
@@ -130,7 +154,7 @@ class RegressionDataset(Dataset):
 
 
 class RosenbrockBanana(Dataset):
-    def __init__(self, dimensions=200, size=1000):
+    def __init__(self, dimensions = 200, size = 1000):
         super(RosenbrockBanana, self).__init__()
         self.size = size
         self.dimensions = dimensions
@@ -146,7 +170,7 @@ class RosenbrockBanana(Dataset):
 
 
 class QuadraticDataset(Dataset):
-    def __init__(self, diag, size=1000):
+    def __init__(self, diag, size = 1000):
         super(QuadraticDataset, self).__init__()
         self.size = size
         self.diag = diag
@@ -159,7 +183,7 @@ class QuadraticDataset(Dataset):
         return "quadratic"
 
     def convert(self):
-        return np.array([self.diag]*self.size), np.array([0.0]*self.size)
+        return np.array([self.diag] * self.size), np.array([0.0] * self.size)
 
 
 class SingleFileOnlineDataset(Dataset):
@@ -433,16 +457,13 @@ class GaussianNoiseRegressionGenerated(NoCacheDataset, RegressionDataset):
         d = self.w.shape[0]
         x = np.random.random((self.size, d))
         xw = np.dot(x, self.w)
-        y = xw + np.random.randn(self.size)*self.sigma
+        y = xw + np.random.randn(self.size) * self.sigma
         return x, y
 
 
-
-
-#make dirs
+# make dirs
 if not os.path.exists(Dataset.cache_dir):
     os.makedirs(Dataset.cache_dir, mode=0775, exist_ok=True)
-
 
 if __name__ == '__main__':
     d1 = GaussianNoiseRegressionGenerated([1., 2.], 1., 5)
