@@ -117,13 +117,13 @@ class DataProvider:
 
 
 def create_data_provider(dataset: Dataset, force_write_cache: bool = False, center_data: bool = True,
-                         scale_data: bool = True, add_bias_feature: bool = True, normalize_datapoints: bool = True,
+                         scale_data: bool = True, add_bias_feature: bool = True, normalize_datapoints: bool = False,
                          center_labels: bool = False, scale_labels: bool = False,
                          transform_labels_to_plus_minus_one: bool = True):
     data, labels = dataset.get_data(force_write_cache=force_write_cache)
-    copy=False
+    copy = False
     if scale_data:
-        preprocessing.scale(data, copy=copy)
+        data = preprocessing.scale(data, copy=copy)
     elif center_data:
         data = preprocessing.scale(data, with_std=False, copy=copy)
     if scale_labels:
