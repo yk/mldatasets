@@ -486,7 +486,7 @@ class MNISTFull(MultiLabelClassificationDataset):
         images = self.extract_images(self.data_filename)
         labels = self.extract_labels(self.labels_filename)
         data = np.reshape(images, [images.shape[0], -1])
-        data = data.astype(np.float32)
+        data = data.astype(np.float32)/255.0
         labels = labels.astype(np.int32)
         return data, labels
 
@@ -546,4 +546,5 @@ if __name__ == '__main__':
     d2 = MNISTFull().get_data()
     print d2[0].shape
     print d2[0][0].dtype
+    print d2[0][0]
     print d2[1][0:10]
