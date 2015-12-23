@@ -1,6 +1,7 @@
 import random
 import zipfile
 import bz2
+import gzip
 import requests
 import os
 import numpy as np
@@ -141,6 +142,11 @@ def create_data_provider(dataset: Dataset, force_write_cache: bool = False, cent
 class ClassificationDataset(Dataset):
     def get_task(self):
         return "classification"
+
+
+class MultiLabelClassificationDataset(Dataset):
+    def get_task(self):
+        return "multilabel_classification"
 
 
 class RegressionDataset(Dataset):
@@ -456,6 +462,74 @@ class GaussianNoiseRegressionGenerated(NoCacheDataset, RegressionDataset):
         return x, y
 
 
+class MNISTFull(MultiLabelClassificationDataset):
+    def __init__(self):
+        self.source_url = 'http://yann.lecun.com/exdb/mnist'
+        self.data_url = '{}/train-images-idx3-ubyte.gz'.format(self.source_url)
+        self.labels_url = '{}/train-labels-idx1-ubyte.gz'.format(self.source_url)
+        self.data_filename = "{}/mnist_full.data".format(Dataset.base_dir)
+        self.labels_filename = "{}/mnist_full.labels".format(Dataset.base_dir)
+
+    def is_available(self):
+        return os.path.exists(self.data_filename) and os.path.exists(self.labels_filename)
+
+    def make_available(self):
+        save_binary_file(download_binary_file(self.data_url), self.data_filename)
+        save_binary_file(download_binary_file(self.labels_url), self.labels_filename)
+
+    def convert(self):
+        images = self.extract_images(self.data_filename)
+        labels = self.extract_labels(self.labels_filename)
+        data = np.reshape(images, [images.shape[0], -1])
+        data = data.astype(np.float32)
+        labels = labels.astype(np.int32)
+        return data, labels
+
+    def _read32(self, bytestream):
+        dt = np.dtype(np.uint32).newbyteorder('>')
+        return np.frombuffer(bytestream.read(4), dtype=dt)[0]
+
+    def extract_images(self, filename):
+        """Extract the images into a 4D uint8 numpy array [index, y, x, depth]."""
+        with gzip.open(filename) as bytestream:
+            magic = self._read32(bytestream)
+            if magic != 2051:
+                raise ValueError(
+                    'Invalid magic number %d in MNIST image file: %s' %
+                    (magic, filename))
+            num_images = self._read32(bytestream)
+            rows = self._read32(bytestream)
+            cols = self._read32(bytestream)
+            buf = bytestream.read(rows * cols * num_images)
+            data = np.frombuffer(buf, dtype=np.uint8)
+            data = data.reshape(num_images, rows, cols, 1)
+            return data
+
+    def dense_to_one_hot(self, labels_dense, num_classes=10):
+        """Convert class labels from scalars to one-hot vectors."""
+        num_labels = labels_dense.shape[0]
+        index_offset = np.arange(num_labels) * num_classes
+        labels_one_hot = np.zeros((num_labels, num_classes))
+        labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+        return labels_one_hot
+
+    def extract_labels(self, filename, one_hot=False):
+        """Extract the labels into a 1D uint8 numpy array [index]."""
+        with gzip.open(filename) as bytestream:
+            magic = self._read32(bytestream)
+            if magic != 2049:
+                raise ValueError(
+                    'Invalid magic number %d in MNIST label file: %s' %
+                    (magic, filename))
+            num_items = self._read32(bytestream)
+            buf = bytestream.read(num_items)
+            labels = np.frombuffer(buf, dtype=np.uint8)
+            if one_hot:
+                return self.dense_to_one_hot(labels)
+            return labels
+
+
+
 # make dirs
 if not os.path.exists(Dataset.cache_dir):
     os.makedirs(Dataset.cache_dir, mode=0o775, exist_ok=True)
@@ -463,3 +537,8 @@ if not os.path.exists(Dataset.cache_dir):
 if __name__ == '__main__':
     d1 = GaussianNoiseRegressionGenerated([1., 2.], 1., 5)
     print(d1.get_data())
+
+    d2 = MNISTFull().get_data()
+    print(d2[0].shape)
+    print(d2[0][0].dtype)
+    print(d2[1][0:10])
