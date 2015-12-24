@@ -9,7 +9,7 @@ import requests
 import os
 import numpy as np
 import sklearn.datasets
-from sklearn import preprocessing
+from sklearn import preprocessing, cross_validation
 from io import open
 from itertools import izip
 
@@ -103,10 +103,11 @@ class NoCacheDataset(Dataset):
 
 
 class DataProvider(object):
-    def __init__(self, data, labels):
+    def __init__(self, data, labels, test_provider=None):
         self.data, self.labels = data, labels
         self.size = self.data.shape[0]
         self.dimensions = self.data.shape[1]
+        self.test_provider = test_provider
 
     def get_sample(self, sample_size = 50):
         d, l, i = self.get_sample_with_inds(sample_size)
@@ -124,7 +125,7 @@ class DataProvider(object):
 def create_data_provider(dataset, force_write_cache = False, center_data = True,
                          scale_data = True, add_bias_feature = True, normalize_datapoints = False,
                          center_labels = False, scale_labels = False,
-                         transform_labels_to_plus_minus_one = True):
+                         transform_labels_to_plus_minus_one = True, test_size=0.0):
     data, labels = dataset.get_data(force_write_cache=force_write_cache)
     copy = False
     if scale_data:
@@ -141,7 +142,11 @@ def create_data_provider(dataset, force_write_cache = False, center_data = True,
         data /= np.linalg.norm(data, axis=1)[:, np.newaxis]
     if transform_labels_to_plus_minus_one:
         labels = labels * 2.0 - 1.0
-    return DataProvider(data, labels)
+    test_provider = None
+    if test_size > 0.0:
+        data, data_test, labels, labels_test = cross_validation.train_test_split(data, labels, test_size=test_size)
+        test_provider = DataProvider(data_test, labels_test)
+    return DataProvider(data, labels, test_provider=test_provider)
 
 
 class ClassificationDataset(Dataset):
