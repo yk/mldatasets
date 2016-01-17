@@ -43,6 +43,15 @@ def read_sparse_vector(tokens, dimensions):
     return vec
 
 
+def dense_to_one_hot(labels_dense, num_classes=2):
+    """Convert class labels from scalars to one-hot vectors."""
+    num_labels = labels_dense.shape[0]
+    index_offset = np.arange(num_labels) * num_classes
+    labels_one_hot = np.zeros((num_labels, num_classes))
+    labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+    return labels_one_hot
+
+
 class Dataset:
     base_dir = os.path.expanduser("~/tmp/pydata")
     cache_dir = "{}/cache".format(base_dir)
@@ -510,14 +519,6 @@ class MNISTFull(MultiLabelClassificationDataset):
             data = data.reshape(num_images, rows, cols, 1)
             return data
 
-    def dense_to_one_hot(self, labels_dense, num_classes=10):
-        """Convert class labels from scalars to one-hot vectors."""
-        num_labels = labels_dense.shape[0]
-        index_offset = np.arange(num_labels) * num_classes
-        labels_one_hot = np.zeros((num_labels, num_classes))
-        labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
-        return labels_one_hot
-
     def extract_labels(self, filename, one_hot=False):
         """Extract the labels into a 1D uint8 numpy array [index]."""
         with gzip.open(filename) as bytestream:
@@ -530,7 +531,7 @@ class MNISTFull(MultiLabelClassificationDataset):
             buf = bytestream.read(num_items)
             labels = np.frombuffer(buf, dtype=np.uint8)
             if one_hot:
-                return self.dense_to_one_hot(labels)
+                return dense_to_one_hot(labels, num_classes=10)
             return labels
 
 
