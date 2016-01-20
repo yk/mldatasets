@@ -10,6 +10,7 @@ import os
 import numpy as np
 import sklearn.datasets
 from sklearn import preprocessing, cross_validation
+import urllib2, urllib
 from io import open
 from itertools import izip
 
@@ -36,6 +37,10 @@ def save_binary_file(content, name):
         os.makedirs(os.path.dirname(name))
     with open(name, "wb") as file:
         file.write(content)
+
+
+def download_and_save_file(url, filename):
+    urllib.urlretrieve(url, filename)
 
 
 def read_sparse_vector(tokens, dimensions):
@@ -216,7 +221,7 @@ class SingleFileOnlineDataset(Dataset):
         return os.path.isfile(self.filename)
 
     def make_available(self):
-        save_file(download_file(self.url), self.filename)
+        download_and_save_file(self.url, self.filename)
 
     def convert_line(self, line):
         pass
@@ -248,7 +253,7 @@ class MultipleFilesOnlineDataset(Dataset):
 
     def make_available(self):
         for url, fn in izip(self.urls, self.filenames):
-            save_file(download_file(url), fn)
+            download_and_save_file(url, fn)
 
     def convert_lines(self, lines):
         pass
@@ -349,7 +354,7 @@ class BZ2Dataset(SingleFileOnlineDataset):
     def make_available(self):
         bz2filename = "{}.bz2".format(self.filename)
         if not os.path.isfile(bz2filename):
-            save_binary_file(download_binary_file(self.url), bz2filename)
+            download_and_save_file(self.url, bz2filename)
         with bz2.open(bz2filename, 'r') as f:
             data = f.read().decode("ascii")
             save_file(data, self.filename)
@@ -411,7 +416,7 @@ class ZipDataset(SingleFileOnlineDataset):
     def make_available(self):
         zipfilename = "{}.zip".format(self.filename)
         if not os.path.isfile(zipfilename):
-            save_binary_file(download_binary_file(self.url), zipfilename)
+            download_and_save_file(self.url, zipfilename)
         with zipfile.ZipFile(zipfilename) as zfile:
             with zfile.open(self.filename_in_zip, 'r') as f:
                 data = f.read().decode("ascii")
@@ -493,8 +498,8 @@ class MNISTFull(MultiLabelClassificationDataset):
         return os.path.exists(self.data_filename) and os.path.exists(self.labels_filename)
 
     def make_available(self):
-        save_binary_file(download_binary_file(self.data_url), self.data_filename)
-        save_binary_file(download_binary_file(self.labels_url), self.labels_filename)
+        download_and_save_file(self.data_url, self.data_filename)
+        download_and_save_file(self.labels_url, self.labels_filename)
 
     def convert(self):
         images = self.extract_images(self.data_filename)
