@@ -253,7 +253,8 @@ class MultipleFilesOnlineDataset(Dataset):
 
     def make_available(self):
         for url, fn in izip(self.urls, self.filenames):
-            download_and_save_file(url, fn)
+            if not os.path.isfile(fn):
+                download_and_save_file(url, fn)
 
     def convert_lines(self, lines):
         pass
